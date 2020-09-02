@@ -30,16 +30,16 @@ class DeployJob implements ShouldQueue
      */
     public function handle()
     {
+        $data = $this->data;
+        $repo = $data['repository'];
+        $branch = str_replace('refs/heads/', '', $data['ref'] ?? 'master');
+        $projectName = $repo['name'];
+        $pusherName = $data['pusher']['name'];
+
         try {
-            $data = $this->data;
-        
             if (empty($data)) {
                 return 'Ok';
             }
-            logs()->info(print_r($data, true));
-            $repo = $data['repository'];
-            $branch = str_replace('refs/heads/', '', $data['ref'] ?? 'master');
-            $projectName = $repo['name'];
             if (!in_array($branch, ['develop', 'master'])) {
                 logs()->info('Branch won\'t deployed cause you need push branches: master, develop');
                 return;
@@ -47,20 +47,45 @@ class DeployJob implements ShouldQueue
             $runComposerExtraCommands = preg_match('/domda_.*_service/', $projectName) ? ' && composer install' : '';
             $command = 'ssh ubuntu@dev.domda.su -t "'.
             'cd ~/projects/'.$projectName.
-            ' && git pull origin '.$branch.' '.
+            ' && git reset --hard HEAD && git pull origin '.$branch.' '.
             $runComposerExtraCommands.
             ' && /home/ubuntu/.composer/vendor/bin/ldc restart'.
             '"';
             $result = exec($command);
-            logs()->info($command);
-            logs()->info('Deploy done.');
-            logs()->info(print_r($result, true));
+            $result = print_r($result, true);
             
-            $this->notify($this->getMessage($projectName, $branch, $data['pusher']['name']));
+            if ($result != 'Done.') {
+                throw new \Exception('Something went wrong.');
+            }
+
+            $this->notify($this->getMessage($projectName, $branch, $pusherName)."\n\n".$this->getCommitsText($data['commits'] ?? []));
         } catch (\Exception $ex) {
-            $this->notify('Something went wrong. Please check your deploy logs.');
-            throw $ex;
+            $this->notify(<<<EOT
+            Something went wrong. Please check your deploy logs.
+
+
+            #deploy #failed
+
+            Repository: `Onza-Me/$projectName`
+            Branch: `$branch`
+            Pusher: `$pusherName`
+EOT);
         }
+    }
+
+    private function getCommitsText(array $commits = [])
+    {
+        if (empty($commits)) {
+            return 'No commits';
+        }
+
+        $text = 'Commits:'."\n";
+        foreach ($commits as $index => $commit) {
+            $text .= '```'."\n".$commit['message'].'```'."\n";
+            $text .= '© `'.$commit['author']['name']."` in [commit](".$commit['url'].")\n\n";
+        }
+
+        return $text;
     }
 
     private function getMessage($projectName, $branch, $pusherName)
@@ -68,9 +93,9 @@ class DeployJob implements ShouldQueue
         return <<<EOT
 #deploy
 
-Repository: Onza-Me/$projectName
-Branch: $branch
-Pusher: $pusherName
+Repository: `Onza-Me/$projectName`
+Branch: `$branch`
+Pusher: `$pusherName`
 EOT;
     }
 

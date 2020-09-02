@@ -44,6 +44,6 @@ class NotifyToTelegram implements ShouldQueue
 
     private function log($out)
     {
-        logs()->info(print_r($out, true));
+        // logs()->info(print_r($out, true));
     }
 }
