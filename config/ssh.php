@@ -1,6 +1,3 @@
 <?php
 
-return [
-    'username' => env('SSH_USERNAME', 'ubuntu'),
-    'host' => env('SSH_HOST', 'dev.domda.su')
-];
+return prepare_ssh_creds_config(env('SSH_CREDS', 'aow:root@aow.space,'));

@@ -2,25 +2,25 @@
 
 namespace App\Jobs;
 
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
+use App\Helpers\ArrayMapper;
 
-class DeployJob implements ShouldQueue
+class DeployJob extends BaseSshCommandJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
-
-    public $data;
+    public ArrayMapper $data;
     /**
      * Create a new job instance.
      *
      * @return void
      */
-    public function __construct($data)
+    public function __construct(array $data = [])
     {
-        $this->data = $data;
+        $this->data = array_mapper($data);
+    }
+
+    protected function get($key, $default = null)
+    {
+        return $this->data->get($key, $default);
     }
 
     /**
@@ -30,37 +30,26 @@ class DeployJob implements ShouldQueue
      */
     public function handle()
     {
-        $data = $this->data;
-        $repo = $data['repository'];
-        $branch = str_replace('refs/heads/', '', $data['ref'] ?? 'master');
-        $projectName = $repo['name'];
-        $pusherName = isset($data['pusher']) ? $data['pusher']['name'] : 'Undefined pusher';
+        if ($this->data->isEmpty()) {
+            return;
+        }
+        $branch = str_replace('refs/heads/', '', $this->get('ref') ?? 'master');
+
+        if (!in_array($branch, ['develop', 'master'])) {
+            logs()->info('Branch won\'t deployed cause you need push branches: master, develop');
+            return;
+        }
+
+        $repo = array_mapper($this->get('repository'));
+        $projectName = $repo->get('name');
+        $pusherName = $this->get('pusher.name', 'Pusher is undefined');
 
         try {
-            if (empty($data)) {
-                return 'Ok';
-            }
-            if (!in_array($branch, ['develop', 'master'])) {
-                logs()->info('Branch won\'t deployed cause you need push branches: master, develop');
-                return;
-            }
-            
-            $command = 'ssh -o "StrictHostKeyChecking no" '.config('ssh.username').'@'.config('ssh.host').' -t "'.
-            'cd ~/projects/'.$projectName.
-            ' && git reset --hard HEAD '.
-            '&& git pull origin '.$branch.' '.
-            ' && '.implode(' && ', require(storage_path('app/'.$projectName.'.php'))).
-            '"';
-
-            logs()->info($command);
-
-            $result = exec($command);
-            $result = print_r($result, true);
-            logs()->info($result);
-
-            if ($result != 'Done.') {
-                throw new \Exception('Something went wrong.');
-            }
+            $this->runCommands('aow', array_merge([
+                'cd ~/projects/'.$projectName,
+                'git reset --hard HEAD',
+                'git pull origin '.$branch
+            ], $this->getExtraCommands($projectName)));
 
             $this->notify($this->getMessage($projectName, $branch, $pusherName)."\n\n".$this->getCommitsText($data['commits'] ?? []));
         } catch (\Exception $e) {
@@ -70,7 +59,7 @@ class DeployJob implements ShouldQueue
 
             #deploy #failed
 
-            Repository: `acrossoffwest/$projectName`
+            Repository: `{$repo->get('full_name')}`
             Branch: `$branch`
             Pusher: `$pusherName`
 EOT);
@@ -78,7 +67,13 @@ EOT);
         }
     }
 
-    private function getCommitsText(array $commits = [])
+    protected function getExtraCommands(string $projectName): array
+    {
+        $extraCommandsFilepath = storage_path('app/'.$projectName.'.php');
+        return $extraCommands = file_exists($extraCommandsFilepath) ? require($extraCommandsFilepath) : [];
+    }
+
+    protected function getCommitsText(array $commits = [])
     {
         if (empty($commits)) {
             return 'No commits';
@@ -93,7 +88,7 @@ EOT);
         return $text;
     }
 
-    private function getMessage($projectName, $branch, $pusherName)
+    protected function getMessage($projectName, $branch, $pusherName)
     {
         return <<<EOT
 #deploy
@@ -104,7 +99,7 @@ Pusher: `$pusherName`
 EOT;
     }
 
-    private function notify($message)
+    protected function notify($message)
     {
         dispatch(new NotifyToTelegram(
             $message,
