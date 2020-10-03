@@ -43,7 +43,7 @@ class DeployJob extends BaseSshCommandJob implements ShouldQueue
         $repo = array_mapper($this->get('repository') ?? []);
         $projectName = $repo->get('name');
         $repoFullname = $repo->get('full_name');
-        $sshCredsName = config('deploy-aliases.'.$repoFullname);
+        $sshCredsName = get_ssh_creds_name($repoFullname);
         if (empty($repoFullname) || empty($sshCredsName)) {
             return;
         }
