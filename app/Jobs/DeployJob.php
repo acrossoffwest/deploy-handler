@@ -15,7 +15,11 @@ class DeployJob extends BaseSshCommandJob implements ShouldQueue
      */
     public function __construct(array $data = [])
     {
-        $this->data = array_mapper($data);
+        if (isset($data['payload'])) {
+            $this->data = array_mapper(is_string($data['payload']) ? json_decode($data['payload'], true) : $data['payload']);
+        } else {
+            $this->data = array_mapper($data);
+        }
     }
 
     protected function get($key, $default = null)
@@ -57,7 +61,7 @@ class DeployJob extends BaseSshCommandJob implements ShouldQueue
                 'git pull origin '.$branch
             ], $this->getExtraCommands($projectName)));
 
-            $this->notify($this->getMessage($projectName, $branch, $pusherName)."\n\n".$this->getCommitsText($this->get('commits')));
+            $this->notify($this->getMessage($projectName, $branch, $pusherName)."\n\n".$this->getCommitsText($this->get('commits') ?? []));
         } catch (\Exception $e) {
             $this->notify(<<<EOT
             Something went wrong. Please check your deploy logs.
