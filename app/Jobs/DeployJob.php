@@ -49,10 +49,10 @@ class DeployJob extends BaseSshCommandJob implements ShouldQueue
         }
 
         $pusherName = $this->get('pusher.name', 'Pusher is undefined');
-
+        $configs = array_mapper($this->getDeployConfigs($projectName));
         try {
             $this->runCommands($sshCredsName, array_merge([
-                'cd ~/projects/'.$projectName,
+                'cd '.$configs->get('project.path', '~/projects/'.$projectName),
                 'git reset --hard HEAD',
                 'git pull origin '.$branch
             ], $this->getExtraCommands($projectName)));
@@ -75,7 +75,13 @@ EOT);
 
     protected function getExtraCommands(string $projectName): array
     {
-        $extraCommandsFilepath = storage_path('app/'.$projectName.'.php');
+        $extraCommandsFilepath = storage_path('deploy/commands/'.$projectName.'.php');
+        return $extraCommands = file_exists($extraCommandsFilepath) ? require($extraCommandsFilepath) : [];
+    }
+
+    protected function getDeployConfigs(string $projectName): array
+    {
+        $extraCommandsFilepath = storage_path('deploy/configs/'.$projectName.'.php');
         return $extraCommands = file_exists($extraCommandsFilepath) ? require($extraCommandsFilepath) : [];
     }
 
