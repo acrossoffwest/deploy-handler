@@ -15,12 +15,14 @@ services:
       - database
     environment:
       - VIRTUAL_HOST=${DOMAINS},${PMA_DOMAIN}
+      - LETSENCRYPT_HOST=${DOMAINS},${PMA_DOMAIN}
 
   php:
     build: ./php
     volumes:
       - "${APP_DIR}:/var/www/html"
       - "./supervisor:/etc/supervisor"
+      - "./rsa_keys:/root/.ssh"
       - "./cron.d:/etc/cron.d"
       - "./php/custom.ini:/usr/local/etc/php/conf.d/custom.ini"
     depends_on:

@@ -34,7 +34,7 @@ class DeployJob implements ShouldQueue
         $repo = $data['repository'];
         $branch = str_replace('refs/heads/', '', $data['ref'] ?? 'master');
         $projectName = $repo['name'];
-        $pusherName = $data['pusher']['name'];
+        $pusherName = isset($data['pusher']) ? $data['pusher']['name'] : 'Undefined pusher';
 
         try {
             if (empty($data)) {
@@ -44,32 +44,37 @@ class DeployJob implements ShouldQueue
                 logs()->info('Branch won\'t deployed cause you need push branches: master, develop');
                 return;
             }
-            $runComposerExtraCommands = preg_match('/domda_.*_service/', $projectName) ? ' && composer install' : '';
-            $command = 'ssh ubuntu@dev.domda.su -t "'.
+            
+            $command = 'ssh -o "StrictHostKeyChecking no" '.config('ssh.username').'@'.config('ssh.host').' -t "'.
             'cd ~/projects/'.$projectName.
-            ' && git reset --hard HEAD && git pull origin '.$branch.' '.
-            $runComposerExtraCommands.
-            ' && /home/ubuntu/.composer/vendor/bin/ldc restart'.
+            ' && git reset --hard HEAD '.
+            '&& git pull origin '.$branch.' '.
+            ' && '.implode(' && ', require(storage_path('app/'.$projectName.'.php'))).
             '"';
+
+            logs()->info($command);
+
             $result = exec($command);
             $result = print_r($result, true);
-            
+            logs()->info($result);
+
             if ($result != 'Done.') {
                 throw new \Exception('Something went wrong.');
             }
 
             $this->notify($this->getMessage($projectName, $branch, $pusherName)."\n\n".$this->getCommitsText($data['commits'] ?? []));
-        } catch (\Exception $ex) {
+        } catch (\Exception $e) {
             $this->notify(<<<EOT
             Something went wrong. Please check your deploy logs.
 
 
             #deploy #failed
 
-            Repository: `Onza-Me/$projectName`
+            Repository: `acrossoffwest/$projectName`
             Branch: `$branch`
             Pusher: `$pusherName`
 EOT);
+            logs()->info($e->getMessage());
         }
     }
 
@@ -93,7 +98,7 @@ EOT);
         return <<<EOT
 #deploy
 
-Repository: `Onza-Me/$projectName`
+Repository: `acrossoffwest/$projectName`
 Branch: `$branch`
 Pusher: `$pusherName`
 EOT;
@@ -104,7 +109,7 @@ EOT;
         dispatch(new NotifyToTelegram(
             $message,
             [
-            -1001384022523
+                -1001383658966
             ]
         ));
     }
