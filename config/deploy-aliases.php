@@ -1,6 +1,6 @@
 <?php
 
-$aliasesString = env('DEPLOY_ALIASES_TO_SSH_CREDS', 'acrossoffwest/task-manager:aow');
+$aliasesString = env('DEPLOY_ALIASES_TO_SSH_CREDS', 'acrossoffwest\/(.*):aow,acrossoffwest/task-manager:aow');
 
 $aliases = array_map('trim', explode(',', $aliasesString));
 

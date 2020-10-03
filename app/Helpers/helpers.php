@@ -14,9 +14,28 @@ if (!function_exists('prepare_ssh_creds')) {
         return $result;
     }
 }
+
 if (!function_exists('array_mapper')) {
     function array_mapper (array $array)
     {
         return \App\Helpers\ArrayMapper::create($array);
+    }
+}
+
+if (!function_exists('get_ssh_creds_name')) {
+    function get_ssh_creds_name (string $repoFullName): string
+    {
+        $deployAliases = array_mapper(config('deploy-aliases'));
+        $sshCredsName = $deployAliases->get($repoFullName);
+        if (!empty($ssdCredsName)) {
+            return $sshCredsName;
+        }
+        foreach ($deployAliases->toArray() as $repo => $sshCredsName) {
+            var_dump(preg_match('/'.$repo.'/', $repoFullName), $sshCredsName);
+            if (preg_match('/'.$repo.'/', $repoFullName)) {
+                return $sshCredsName;
+            }
+        }
+        return '';
     }
 }
