@@ -57,7 +57,7 @@ class DeployJob extends BaseSshCommandJob implements ShouldQueue
                 'git pull origin '.$branch
             ], $this->getExtraCommands($projectName)));
 
-            $this->notify($this->getMessage($projectName, $branch, $pusherName)."\n\n".$this->getCommitsText($data['commits'] ?? []));
+            $this->notify($this->getMessage($projectName, $branch, $pusherName)."\n\n".$this->getCommitsText($this->get('commits')));
         } catch (\Exception $e) {
             $this->notify(<<<EOT
             Something went wrong. Please check your deploy logs.

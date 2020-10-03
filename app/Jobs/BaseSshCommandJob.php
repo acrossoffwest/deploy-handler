@@ -21,10 +21,10 @@ class BaseSshCommandJob implements ShouldQueue
         }
 
         $cmd = 'ssh -o "StrictHostKeyChecking no" '.$sshUserAndHost.' -t "{commands}"';
-
+        $cmd = str_replace('{commands}', implode(' && ', $commands), $cmd);
         logs()->info('Running command: '.$cmd);
 
-        $result = exec(str_replace('{commands}', implode(' && ', $commands), $cmd));
+        $result = exec($cmd);
         $result = print_r($result, true);
 
         logs()->info('Command execution result: '.$result);
