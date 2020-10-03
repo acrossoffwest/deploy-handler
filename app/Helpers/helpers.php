@@ -25,13 +25,13 @@ if (!function_exists('array_mapper')) {
 if (!function_exists('get_ssh_creds_name')) {
     function get_ssh_creds_name (string $repoFullName): string
     {
-        $deployAliases = array_mapper(config('deploy-aliases'));
-        $sshCredsName = $deployAliases->get($repoFullName);
-        if (!empty($ssdCredsName)) {
+        $deployAliases = config('deploy-aliases');
+        $sshCredsName = $deployAliases[$repoFullName] ?? null;
+
+        if (!empty($sshCredsName)) {
             return $sshCredsName;
         }
-        foreach ($deployAliases->toArray() as $repo => $sshCredsName) {
-            var_dump(preg_match('/'.$repo.'/', $repoFullName), $sshCredsName);
+        foreach ($deployAliases as $repo => $sshCredsName) {
             if (preg_match('/'.$repo.'/', $repoFullName)) {
                 return $sshCredsName;
             }
