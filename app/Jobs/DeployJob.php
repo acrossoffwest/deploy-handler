@@ -42,10 +42,16 @@ class DeployJob extends BaseSshCommandJob implements ShouldQueue
 
         $repo = array_mapper($this->get('repository'));
         $projectName = $repo->get('name');
+        $repoFullname = $repo->get('full_name');
+        $sshCredsName = config('deploy-aliases.'.$repoFullname);
+        if (empty($repoFullname) || empty($sshCredsName)) {
+            return;
+        }
+
         $pusherName = $this->get('pusher.name', 'Pusher is undefined');
 
         try {
-            $this->runCommands('aow', array_merge([
+            $this->runCommands($sshCredsName, array_merge([
                 'cd ~/projects/'.$projectName,
                 'git reset --hard HEAD',
                 'git pull origin '.$branch
@@ -81,8 +87,9 @@ EOT);
 
         $text = 'Commits:'."\n";
         foreach ($commits as $index => $commit) {
-            $text .= '```'."\n".$commit['message'].'```'."\n";
-            $text .= '© `'.$commit['author']['name']."` in [commit](".$commit['url'].")\n\n";
+            $commit = array_mapper($commit);
+            $text .= '```'."\n".$commit->get('message').'```'."\n";
+            $text .= '© `'.$commit->get('author.name')."` in [commit](".$commit->get('url').")\n\n";
         }
 
         return $text;
